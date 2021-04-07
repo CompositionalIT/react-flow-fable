@@ -4,26 +4,57 @@ open Elmish
 open Fable.React
 open ReactFlow
 open Browser.Dom
-type Model = obj
-type Msg = obj
+open Fable.Core.JsInterop
 
-let init () = obj(), Cmd.none
+type Msg =
+    | Connect of {| source : string; target : string |}
+    | Clicked of string
+
+type Model =
+    {
+        Elements : FlowElement list
+        ClickCount : int
+    }
+
+let init () =
+    let elements = [
+        FlowElement.node ("1", Input, "An Input Element", (250, 25))
+        FlowElement.node ("2", Default, "A Default Node", (100, 125))
+        FlowElement.node ("3", Output, "An Output Element", (250, 250))
+    ]
+
+    { Elements = elements; ClickCount = 0 }, Cmd.none
+
+module List =
+    let modifyInList predicate mapper = List.map(fun r -> if predicate r then mapper r else r)
 
 let update msg model =
-    model, Cmd.none
+    match msg with
+    | Connect connection ->
+        { model with Elements = FlowElement.edge (connection.source, connection.target) :: model.Elements }, Cmd.none
+    | Clicked clicked ->
+        let clickedElement = model.Elements |> List.find(fun r -> r.id = clicked)
+        match clickedElement with
+        | Edge e ->
+            { model with
+                Elements = model.Elements |> List.modifyInList ((=) clickedElement) (fun _ -> Edge { e with animated = not e.animated }) }, Cmd.none
+        | Node ({ id = "2" } as n) ->
+            { model with
+                ClickCount = model.ClickCount + 1
+                Elements =
+                    model.Elements
+                    |> List.modifyInList
+                        ((=) clickedElement)
+                        (fun _ -> FlowElement.Node { n with data = {| label = $"Clicks: {model.ClickCount}" |} })}, Cmd.none
+        | Node _ ->
+            model, Cmd.none
 
-// Create data using anonymous record syntax here, but you can also use standard records
-let elements = [|
-    box {| id = "1"; ``type`` = Input.Value; data = {| label = "An Input Element" |}; position = {| x = 250; y = 5 |} |}
-    box {| id = "2"; ``type`` = Output.Value; data = {| label = "An Output Element" |}; position = {| x = 100; y = 100 |} |}
-    box {| id = "e1-2"; source = "1"; target = "2"; animated = true; ``type`` = Bezier.Value; arrowHeadType = ArrowClosed.Value |}
-|]
 
 let view (model: Model) (dispatch: Msg -> unit) =
     div [ Props.Style [ Props.CSSProp.Height 1000 ] ] [
         ReactFlow.create [
-            ReactFlow.elements elements
-            ReactFlow.onElementClick (fun (x,y) -> console.log y; window.alert "You clicked me!")
-            ReactFlow.onNodeDragStop (fun (x,y) -> console.log y; window.alert "You dragged me!")
+            ReactFlow.elements model.Elements
+            ReactFlow.onElementClick (fun (x,y) -> dispatch (Clicked y?id))
+            ReactFlow.onConnect (Connect >> dispatch)
         ]
     ]

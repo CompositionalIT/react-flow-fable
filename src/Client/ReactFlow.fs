@@ -10,15 +10,40 @@ let addEdge : obj = import "addEdge" "react-flow-renderer"
 
 [<Erase>]
 /// This interface allows us to stop adding random props to the react flow.
-type IReactFlowProp = interface end
+type IReactFlow = interface end
+type EdgeType = Bezier | Straight | Step | SmoothStep
+type ArrowHead = Arrow | ArrowClosed
 
-//TODO: Create a Node type (https://reactflow.dev/docs/api/nodes/)
-//TODO: Create an Edge type (https://reactflow.dev/docs/api/edges/)
+type Edge =
+    {
+        id : string
+        _type: EdgeType
+        source : string
+        target : string
+        animated : bool
+        label : string
+        arrowHeadType : ArrowHead
+    }
 
-// Some sample types you can use for setting properties on elements.
-type EdgeType = Bezier | Straight | Step | SmoothStep member this.Value = this.ToString().ToLower()
-type ArrowHead = Arrow | ArrowClosed member this.Value = this.ToString().ToLower()
-type NodeType = Input | Output | Default member this.Value = this.ToString().ToLower()
+type NodeType = Input | Output | Default
+
+type Node =
+    {
+        id : string
+        _type : NodeType
+        data : {| label : string |}
+        position : {| x : int; y : int |}
+    }
+
+type FlowElement =
+    | Node of Node
+    | Edge of Edge
+    static member node (id, ?_type, ?label, ?pos) =
+        let x,y = pos |> Option.defaultValue (0,0)
+        Node { id = id; _type = defaultArg _type Input; data = {| label = defaultArg label null |}; position = {| x = x; y = y |} }
+    static member edge (src, target, ?_type, ?label, ?arrowHead, ?animated) =
+        Edge { id = $"e-{src}-{target}"; source = src; target = target; _type = defaultArg _type Bezier; animated = defaultArg animated false; arrowHeadType = defaultArg arrowHead Arrow; label = defaultArg label null }
+    member this.id = match this with Node n -> n.id | Edge e -> e.id
 
 let funcToTuple handler = System.Func<_,_,_>(fun a b -> handler(a,b))
 
@@ -26,10 +51,18 @@ let funcToTuple handler = System.Func<_,_,_>(fun a b -> handler(a,b))
 [<Erase>]
 type ReactFlow =
     /// Creates a new ReactFlow component.
-    static member inline create (props:IReactFlowProp seq) = Interop.reactApi.createElement (reactFlow, createObj !!props)
+    static member inline create (props:IReactFlow seq) = Interop.reactApi.createElement (reactFlow, createObj !!props)
 
     /// Provides the child elements in a flow.
-    static member inline elements (elements:_ array) : IReactFlowProp = !!("elements" ==> elements)
-    static member inline onElementClick  (handler:(obj*obj) -> unit) : IReactFlowProp = !!("onElementClick" ==> funcToTuple handler)
-    static member inline onNodeDragStop  (handler:(obj*obj) -> unit) : IReactFlowProp = !!("onNodeDragStop" ==> funcToTuple handler)
+    static member inline elements (elements:FlowElement seq) : IReactFlow =
+        let elements = [|
+            for element in elements do
+                match element with
+                | Node n -> box {| n with ``type`` = n._type.ToString().ToLower() |}
+                | Edge e -> box {| e with ``type`` = e._type.ToString().ToLower(); arrowHeadType = e.arrowHeadType.ToString().ToLower() |}
+        |]
+        !!("elements" ==> Seq.toArray elements)
+    static member inline onElementClick (handler:(obj*obj) -> unit) : IReactFlow = !!("onElementClick" ==> funcToTuple handler)
+    static member inline onNodeDragStop (handler:(obj*obj) -> unit) : IReactFlow = !!("onNodeDragStop" ==> funcToTuple handler)
+    static member inline onConnect (handler:{| source : string; target : string |} -> unit) : IReactFlow = !!("onConnect" ==> handler)
 
