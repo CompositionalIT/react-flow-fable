@@ -20,8 +20,9 @@ type EdgeType = Bezier | Straight | Step | SmoothStep member this.Value = this.T
 type ArrowHead = Arrow | ArrowClosed member this.Value = this.ToString().ToLower()
 type NodeType = Input | Output | Default member this.Value = this.ToString().ToLower()
 
-// The !! below is used to "unsafely" expose a prop into an IReactFlowProp.
+let funcToTuple handler = System.Func<_,_,_>(fun a b -> handler(a,b))
 
+// The !! below is used to "unsafely" expose a prop into an IReactFlowProp.
 [<Erase>]
 type ReactFlow =
     /// Creates a new ReactFlow component.
@@ -29,6 +30,6 @@ type ReactFlow =
 
     /// Provides the child elements in a flow.
     static member inline elements (elements:_ array) : IReactFlowProp = !!("elements" ==> elements)
-    static member inline onElementClick  (handler:obj -> unit) : IReactFlowProp = !!("onElementClick" ==> handler)
-    static member inline onNodeDragStop  (handler:obj -> unit) : IReactFlowProp = !!("onNodeDragStop" ==> handler)
+    static member inline onElementClick  (handler:(obj*obj) -> unit) : IReactFlowProp = !!("onElementClick" ==> funcToTuple handler)
+    static member inline onNodeDragStop  (handler:(obj*obj) -> unit) : IReactFlowProp = !!("onNodeDragStop" ==> funcToTuple handler)
 

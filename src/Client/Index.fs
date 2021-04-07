@@ -3,7 +3,7 @@ module Index
 open Elmish
 open Fable.React
 open ReactFlow
-
+open Browser.Dom
 type Model = obj
 type Msg = obj
 
@@ -23,7 +23,7 @@ let view (model: Model) (dispatch: Msg -> unit) =
     div [ Props.Style [ Props.CSSProp.Height 1000 ] ] [
         ReactFlow.create [
             ReactFlow.elements elements
-            ReactFlow.onElementClick (fun x -> Browser.Dom.window.alert "You clicked me!")
-            ReactFlow.onNodeDragStop (fun x -> Browser.Dom.window.alert "You dragged me!")
+            ReactFlow.onElementClick (fun (x,y) -> console.log y; window.alert "You clicked me!")
+            ReactFlow.onNodeDragStop (fun (x,y) -> console.log y; window.alert "You dragged me!")
         ]
     ]
